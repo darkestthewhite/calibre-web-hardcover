@@ -200,6 +200,44 @@ class HardcoverMetadata(Metadata):
 
         return data.get("data", {}).get("books", [])
 
+    @staticmethod
+    def _tag_name(entry) -> Optional[str]:
+        """Extract a display name from a tag string or Hardcover tag object."""
+        if isinstance(entry, str):
+            name = entry.strip()
+            return name or None
+        if isinstance(entry, dict):
+            for key in ("tag", "name", "label"):
+                value = entry.get(key)
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+        return None
+
+    @classmethod
+    def _flatten_tags(cls, cached_tags) -> List[str]:
+        """Normalise Hardcover cached_tags into a flat list of tag names."""
+        tags: List[str] = []
+        seen = set()
+
+        def add(entry) -> None:
+            name = cls._tag_name(entry)
+            if name and name not in seen:
+                seen.add(name)
+                tags.append(name)
+
+        if isinstance(cached_tags, dict):
+            for tag_list in cached_tags.values():
+                if isinstance(tag_list, list):
+                    for entry in tag_list:
+                        add(entry)
+                else:
+                    add(tag_list)
+        elif isinstance(cached_tags, list):
+            for entry in cached_tags:
+                add(entry)
+
+        return tags
+
     def _build_record(self, book: dict, generic_cover: str) -> Optional[MetaRecord]:
         """Convert a Hardcover book dict into a Calibre-Web MetaRecord."""
         book_id = book.get("id")
@@ -218,16 +256,11 @@ class HardcoverMetadata(Metadata):
 
         description = book.get("description") or ""
 
-        # cached_tags comes back as {"Genre": ["Fantasy", "Fiction"], "Mood": ["Dark"]}
-        # Flatten all category lists into a single tag list.
-        cached_tags = book.get("cached_tags") or {}
-        tags = []
-        if isinstance(cached_tags, dict):
-            for tag_list in cached_tags.values():
-                if isinstance(tag_list, list):
-                    tags.extend(str(t) for t in tag_list if t)
-        elif isinstance(cached_tags, list):
-            tags = [str(t) for t in cached_tags if t]
+        # cached_tags shapes seen from Hardcover:
+        # - list of objects: [{"tag": "Fantasy", "category": "Genre", ...}, ...]
+        # - legacy dict of lists: {"Genre": ["Fantasy", "Fiction"], "Mood": ["Dark"]}
+        # - mixed list of strings and objects
+        tags = self._flatten_tags(book.get("cached_tags"))
 
         # Use the first series entry if present
         series_name = None

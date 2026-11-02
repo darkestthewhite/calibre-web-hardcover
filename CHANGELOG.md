@@ -6,6 +6,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- Tag import now extracts names from Hardcover tag objects instead of dumping raw dicts into Calibre-Web
+
 ## [1.0.0] - 2026-03-28
 
 ### Added

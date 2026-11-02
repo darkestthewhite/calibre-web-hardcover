@@ -109,14 +109,38 @@ def normalise_date(release_date: str) -> str:
     return ""
 
 
+def tag_name(entry):
+    if isinstance(entry, str):
+        name = entry.strip()
+        return name or None
+    if isinstance(entry, dict):
+        for key in ("tag", "name", "label"):
+            value = entry.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    return None
+
+
 def flatten_tags(cached_tags) -> list:
     tags = []
+    seen = set()
+
+    def add(entry):
+        name = tag_name(entry)
+        if name and name not in seen:
+            seen.add(name)
+            tags.append(name)
+
     if isinstance(cached_tags, dict):
         for tag_list in cached_tags.values():
             if isinstance(tag_list, list):
-                tags.extend(str(t) for t in tag_list if t)
+                for entry in tag_list:
+                    add(entry)
+            else:
+                add(tag_list)
     elif isinstance(cached_tags, list):
-        tags = [str(t) for t in cached_tags if t]
+        for entry in cached_tags:
+            add(entry)
     return tags
 
 # ── Test steps ────────────────────────────────────────────────────────────────
