@@ -121,15 +121,31 @@ def tag_name(entry):
     return None
 
 
+def expand_tag_name(name: str) -> list:
+    parts = []
+    for chunk in name.replace(";", ",").split(","):
+        part = chunk.strip()
+        if not part:
+            continue
+        if "|||" in part or part.startswith("#"):
+            continue
+        parts.append(part)
+    return parts
+
+
 def flatten_tags(cached_tags) -> list:
     tags = []
     seen = set()
 
     def add(entry):
-        name = tag_name(entry)
-        if name and name not in seen:
-            seen.add(name)
-            tags.append(name)
+        raw = tag_name(entry)
+        if not raw:
+            return
+        for name in expand_tag_name(raw):
+            key = name.casefold()
+            if key not in seen:
+                seen.add(key)
+                tags.append(name)
 
     if isinstance(cached_tags, dict):
         for tag_list in cached_tags.values():

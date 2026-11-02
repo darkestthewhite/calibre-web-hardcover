@@ -213,17 +213,41 @@ class HardcoverMetadata(Metadata):
                     return value.strip()
         return None
 
+    @staticmethod
+    def _expand_tag_name(name: str) -> List[str]:
+        """Split compound tag strings and drop Hardcover colour junk."""
+        # e.g. "murder|||#376B38;mystery|||#376B38" or "Fiction;General"
+        parts = []
+        for chunk in name.replace(";", ",").split(","):
+            part = chunk.strip()
+            if not part:
+                continue
+            # Drop colour-encoded fragments from some Hardcover tags
+            if "|||" in part or part.startswith("#"):
+                continue
+            parts.append(part)
+        return parts
+
     @classmethod
     def _flatten_tags(cls, cached_tags) -> List[str]:
-        """Normalise Hardcover cached_tags into a flat list of tag names."""
+        """Normalise Hardcover cached_tags into a flat list of tag names.
+
+        Calibre-Web matches tags case-insensitively but UNIQUE on tags.name is
+        case-sensitive, so "Murder" + "murder" in one save can raise IntegrityError.
+        Deduplicate with casefold while keeping the first spelling seen.
+        """
         tags: List[str] = []
         seen = set()
 
         def add(entry) -> None:
-            name = cls._tag_name(entry)
-            if name and name not in seen:
-                seen.add(name)
-                tags.append(name)
+            raw = cls._tag_name(entry)
+            if not raw:
+                return
+            for name in cls._expand_tag_name(raw):
+                key = name.casefold()
+                if key not in seen:
+                    seen.add(key)
+                    tags.append(name)
 
         if isinstance(cached_tags, dict):
             for tag_list in cached_tags.values():
